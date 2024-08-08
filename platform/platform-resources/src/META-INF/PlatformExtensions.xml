@@ -1650,9 +1650,6 @@
     <advancedSetting id="enable.combined.diff" default="false" bundle="messages.DiffBundle" groupKey="advanced.settings.vcs"/>
 
     <recoveryAction implementation="com.intellij.ide.actions.cache.InvalidateCachesAndRestartAction"/>
-    <recoveryAction implementation="com.intellij.ide.actions.cache.RecoverVfsFromLogRecoveryAction"/>
-    <registryKey description="Suggest cache recovery on caches corruption" key="idea.vfs.log-vfs-operations.suggest-automatic-recovery"
-                 defaultValue="true"/>
 
     <applicationService serviceInterface="com.intellij.openapi.application.CoroutineSupport"
                         serviceImplementation="com.intellij.openapi.application.impl.PlatformCoroutineSupport"/>
@@ -1675,6 +1672,9 @@
 
     <applicationService serviceInterface="com.intellij.ui.jcef.JBCefOSRHandlerFactory"
                         serviceImplementation="com.intellij.ui.jcef.JBCefOSRHandlerFactoryImpl"/>
+
+    <applicationService serviceInterface="com.intellij.ui.jcef.CefOsrBrowserFactory"
+                        serviceImplementation="com.intellij.ui.jcef.CefBrowserFactoryImpl"/>
 
     <projectService serviceInterface="com.intellij.internal.performanceTests.ProjectInitializationDiagnosticService"
                     serviceImplementation="com.intellij.internal.performanceTests.DummyProjectInitializationDiagnosticService"/>

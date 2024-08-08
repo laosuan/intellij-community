@@ -37,7 +37,6 @@ javax/xml/stream/XMLStreamReader
 kotlin/jvm/internal/DefaultConstructorMarker
 kotlin/reflect/KMutableProperty0
 kotlin/reflect/KProperty
-kotlinx/collections/immutable/PersistentSet
 kotlinx/serialization/KSerializer
 kotlinx/serialization/descriptors/SerialDescriptor
 kotlinx/serialization/encoding/Decoder
@@ -48,7 +47,13 @@ net/miginfocom/layout/BoundSize
 net/miginfocom/layout/LC
 org/apache/http/client/CredentialsProvider
 org/apache/http/client/config/RequestConfig$Builder
+org/cef/CefBrowserSettings
+org/cef/CefClient
+org/cef/browser/CefBrowser
+org/cef/browser/CefRequestContext
 org/cef/handler/CefRenderHandler
 sun/awt/FontConfiguration
 sun/awt/KeyboardFocusManagerPeerImpl
 sun/font/SunFontManager
+
+

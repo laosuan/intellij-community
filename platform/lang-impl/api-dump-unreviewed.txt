@@ -3853,14 +3853,6 @@ f:com.intellij.codeInsight.daemon.impl.DaemonTooltipRendererProvider
 - calcTooltipRenderer(java.util.Collection):com.intellij.codeInsight.hint.TooltipRenderer
 f:com.intellij.codeInsight.daemon.impl.DaemonTooltipWithActionRendererKt
 - sf:getRunActionCustomShortcutSet():com.intellij.openapi.actionSystem.CustomShortcutSet
-f:com.intellij.codeInsight.daemon.impl.DefaultHighlightInfoProcessor
-- com.intellij.codeInsight.daemon.impl.HighlightInfoProcessor
-- <init>():V
-- allHighlightsForRangeAreProduced(com.intellij.codeInsight.daemon.impl.HighlightingSession,J,java.util.List):V
-- highlightsInsideVisiblePartAreProduced(com.intellij.codeInsight.daemon.impl.HighlightingSession,com.intellij.openapi.editor.Editor,java.util.List,com.intellij.openapi.util.TextRange,com.intellij.openapi.util.TextRange,I):V
-- highlightsOutsideVisiblePartAreProduced(com.intellij.codeInsight.daemon.impl.HighlightingSession,com.intellij.openapi.editor.Editor,java.util.List,com.intellij.openapi.util.TextRange,com.intellij.openapi.util.TextRange,I):V
-- infoIsAvailable(com.intellij.codeInsight.daemon.impl.HighlightingSession,com.intellij.codeInsight.daemon.impl.HighlightInfo,com.intellij.openapi.util.TextRange,com.intellij.openapi.util.TextRange,I):V
-- progressIsAdvanced(com.intellij.codeInsight.daemon.impl.HighlightingSession,com.intellij.openapi.editor.Editor,D):V
 f:com.intellij.codeInsight.daemon.impl.EditCleanupProfileIntentionAction
 - com.intellij.codeInsight.intention.IntentionAction
 - sf:INSTANCE:com.intellij.codeInsight.daemon.impl.EditCleanupProfileIntentionAction
@@ -10801,7 +10793,6 @@ c:com.intellij.execution.console.IdeConsoleRootType
 c:com.intellij.execution.console.LanguageConsoleImpl
 - com.intellij.execution.impl.ConsoleViewImpl
 - com.intellij.execution.console.LanguageConsoleView
-- com.intellij.openapi.actionSystem.DataProvider
 - sf:Companion:com.intellij.execution.console.LanguageConsoleImpl$Companion
 - <init>(com.intellij.execution.console.LanguageConsoleImpl$Helper):V
 - <init>(com.intellij.openapi.project.Project,java.lang.String,com.intellij.lang.Language):V
@@ -10845,8 +10836,10 @@ f:com.intellij.execution.console.LanguageConsoleImpl$Companion
 - f:printWithHighlighting(com.intellij.execution.console.LanguageConsoleView,com.intellij.openapi.editor.Editor,com.intellij.openapi.util.TextRange):java.lang.String
 f:com.intellij.execution.console.LanguageConsoleImpl$ConsoleEditorsPanel
 - javax.swing.JPanel
+- com.intellij.openapi.actionSystem.UiDataProvider
 - <init>(com.intellij.execution.console.LanguageConsoleImpl):V
 - f:getConsole():com.intellij.execution.console.LanguageConsoleImpl
+- uiDataSnapshot(com.intellij.openapi.actionSystem.DataSink):V
 c:com.intellij.execution.console.LanguageConsoleImpl$Helper
 - file:com.intellij.psi.PsiFile
 - f:project:com.intellij.openapi.project.Project
@@ -10854,7 +10847,6 @@ c:com.intellij.execution.console.LanguageConsoleImpl$Helper
 - f:virtualFile:com.intellij.openapi.vfs.VirtualFile
 - <init>(com.intellij.openapi.project.Project,com.intellij.openapi.vfs.VirtualFile):V
 - f:getDocument():com.intellij.openapi.editor.Document
-- pf:getEditorData(com.intellij.openapi.editor.ex.EditorEx,java.lang.String):java.lang.Object
 - getFile():com.intellij.psi.PsiFile
 - f:getFileSafe():com.intellij.psi.PsiFile
 - f:setLanguage(com.intellij.lang.Language):V

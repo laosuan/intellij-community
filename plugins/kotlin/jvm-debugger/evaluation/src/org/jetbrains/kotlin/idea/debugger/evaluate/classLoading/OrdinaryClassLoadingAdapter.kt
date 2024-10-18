@@ -86,7 +86,8 @@ class OrdinaryClassLoadingAdapter : ClassLoadingAdapter {
     }
 
     override fun isApplicable(context: ExecutionContext, info: ClassLoadingAdapter.Companion.ClassInfoForEvaluator): Boolean {
-        return info.isCompilingEvaluatorPreferred && context.classLoader != null && !DexDebugFacility.isDex(context.debugProcess)
+        return info.isCompilingEvaluatorPreferred && context.classLoader != null
+                && !DexDebugFacility.isDex(context.evaluationContext.virtualMachineProxy.virtualMachine)
     }
 
     override fun loadClasses(context: ExecutionContext, classes: Collection<ClassToLoad>): ClassLoaderReference {
@@ -138,7 +139,7 @@ class OrdinaryClassLoadingAdapter : ClassLoadingAdapter {
             val vm = context.vm
             val classLoaderType = classLoader.referenceType() as ClassType
             val defineMethod = classLoaderType.concreteMethodByName("defineClass", "(Ljava/lang/String;[BII)Ljava/lang/Class;")
-            val nameObj = mirrorOfString(name, vm, context.evaluationContext)
+            val nameObj = mirrorOfString(name, context.evaluationContext)
 
             val args = listOf(
                 nameObj,

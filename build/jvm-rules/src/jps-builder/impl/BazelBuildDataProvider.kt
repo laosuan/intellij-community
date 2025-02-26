@@ -3,10 +3,10 @@
 package org.jetbrains.bazel.jvm.jps.impl
 
 import org.apache.arrow.memory.RootAllocator
-import org.jetbrains.bazel.jvm.jps.SourceDescriptor
-import org.jetbrains.bazel.jvm.jps.emptyStringArray
+import org.jetbrains.bazel.jvm.emptyStringArray
+import org.jetbrains.bazel.jvm.jps.state.DependencyStateStorage
+import org.jetbrains.bazel.jvm.jps.state.SourceDescriptor
 import org.jetbrains.jps.builders.BuildTarget
-import org.jetbrains.jps.builders.BuildTargetType
 import org.jetbrains.jps.builders.storage.SourceToOutputMapping
 import org.jetbrains.jps.incremental.storage.BuildDataProvider
 import org.jetbrains.jps.incremental.storage.OneToManyPathMapping
@@ -19,12 +19,12 @@ import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
 
 internal class BazelBuildDataProvider(
-  @JvmField val relativizer: PathTypeAwareRelativizer,
+  @JvmField val relativizer: BazelPathTypeAwareRelativizer,
   private val sourceToDescriptor: Map<Path, SourceDescriptor>,
   @JvmField val storeFile: Path,
   @JvmField val allocator: RootAllocator,
   @JvmField val isCleanBuild: Boolean,
-  @JvmField val libRootManager: BazelLibraryRoots,
+  @JvmField val libRootManager: DependencyStateStorage,
 ) : BuildDataProvider {
   @JvmField
   val stampStorage = BazelStampStorage(sourceToDescriptor)
@@ -58,15 +58,13 @@ internal class BazelBuildDataProvider(
   override fun clearCache() {
   }
 
-  override fun removeStaleTarget(targetId: String, targetType: BuildTargetType<*>) {
+  override fun commit() {
   }
 
-  override fun flushStorage(memoryCachesOnly: Boolean) {
+  override fun removeAllMaps() {
   }
 
-  override fun getLibraryRoots() = libRootManager
-
-  override fun wipeStorage() {
+  override fun removeStaleTarget(targetId: String, targetTypeId: String) {
   }
 
   override fun getFileStampStorage(target: BuildTarget<*>): BazelStampStorage = stampStorage
@@ -99,9 +97,7 @@ internal class BazelStampStorage(private val map: Map<Path, SourceDescriptor>) :
 
   override fun removeStamp(sourceFile: Path, buildTarget: BuildTarget<*>?) {
     // used by BazelKotlinFsOperationsHelper (markChunk -> fsState.markDirty)
-    synchronized(map) {
-      map.get(sourceFile)?.isChanged = true
-    }
+    markChanged(sourceFile)
   }
 
   fun markChanged(sourceFile: Path) {
@@ -214,8 +210,13 @@ internal class BazelSourceToOutputMapping(
     }
   }
 
-  fun getDescriptor(sourceFile: Path): SourceDescriptor? {
-    return synchronized(map) { map.get(sourceFile) }
+  fun collectAffectedOutputs(sourceFiles: Collection<Path>, to: MutableList<Array<String>>) {
+    synchronized(map) {
+      for (sourceFile in sourceFiles) {
+        val descriptor = map.get(sourceFile) ?: continue
+        to.add(descriptor.outputs)
+      }
+    }
   }
 
   fun findAffectedSources(affectedSources: List<Array<String>>): List<SourceDescriptor> {

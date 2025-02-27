@@ -13,7 +13,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArraySet
 import kotlinx.coroutines.ensureActive
 import org.jetbrains.bazel.jvm.hashMap
 import org.jetbrains.bazel.jvm.jps.output.OutputSink
-import org.jetbrains.bazel.jvm.jps.state.LoadStateResult
+import org.jetbrains.bazel.jvm.jps.state.SourceFileStateResult
 import org.jetbrains.bazel.jvm.jps.state.RemovedFileInfo
 import org.jetbrains.bazel.jvm.linkedSet
 import org.jetbrains.bazel.jvm.span
@@ -77,7 +77,6 @@ internal abstract class BazelTargetBuilder(category: BuilderCategory) : ModuleLe
 internal class JpsTargetBuilder(
   private val log: RequestLog,
   private val tracer: Tracer,
-  private val isCleanBuild: Boolean,
   private val dataManager: BazelBuildDataProvider?,
 ) {
   private val builderToDuration = hashMap<Builder, AtomicLong>()
@@ -87,7 +86,7 @@ internal class JpsTargetBuilder(
     context: BazelCompileContext,
     moduleTarget: BazelModuleBuildTarget,
     builders: Array<out ModuleLevelBuilder>,
-    buildState: LoadStateResult?,
+    buildState: SourceFileStateResult?,
     outputSink: OutputSink,
     parentSpan: Span,
   ): Int {
@@ -182,7 +181,7 @@ internal class JpsTargetBuilder(
       builder.chunkBuildStarted(context, chunk)
     }
 
-    if (!isCleanBuild && dataManager != null) {
+    if (!context.scope.isRebuild && dataManager != null) {
       completeRecompiledSourcesSet(context, target, dataManager)
     }
 
@@ -196,7 +195,7 @@ internal class JpsTargetBuilder(
         nextPassRequired = false
         fsState.beforeNextRoundStart(context, chunk)
 
-        if (dataManager != null && !isCleanBuild) {
+        if (dataManager != null && !context.scope.isRebuild) {
           cleanOutputsCorrespondingToChangedFiles(
             context = context,
             target = target,
@@ -252,7 +251,7 @@ internal class JpsTargetBuilder(
               nextPassRequired = true
             }
             else if (buildResult == ModuleLevelBuilder.ExitCode.CHUNK_REBUILD_REQUIRED) {
-              if (!rebuildFromScratchRequested && !isCleanBuild) {
+              if (!rebuildFromScratchRequested && !context.scope.isRebuild) {
                 var infoMessage = "Builder \"${builder.presentableName}\" requested rebuild of module chunk \"${chunk.name}\""
                 infoMessage += ".\n"
                 infoMessage += "Consider building whole project or rebuilding the module."
@@ -304,7 +303,7 @@ internal class JpsTargetBuilder(
     context: BazelCompileContext,
     target: BazelModuleBuildTarget,
     builders: Array<out ModuleLevelBuilder>,
-    buildState: LoadStateResult?,
+    buildState: SourceFileStateResult?,
     outputSink: OutputSink,
   ) {
     val targets = java.util.Set.of<BuildTarget<*>>(target)
@@ -317,9 +316,9 @@ internal class JpsTargetBuilder(
       val fsState = context.projectDescriptor.fsState
       require(!fsState.isInitialScanPerformed(target))
       tracer.spanBuilder("fs state init")
-        .setAttribute("isCleanBuild", isCleanBuild)
+        .setAttribute("isRebuild", context.scope.isRebuild)
         .use { span ->
-          if (isCleanBuild || buildState == null) {
+          if (context.scope.isRebuild || buildState == null) {
             initFsStateForCleanBuild(context = context, target = target)
           }
           else {
@@ -478,15 +477,9 @@ private fun completeRecompiledSourcesSet(context: CompileContext, target: BazelM
   val delta = projectDescriptor.fsState.getEffectiveFilesDelta(context, target)
   delta.lockData()
   try {
-    if (delta.sourceMapToRecompile.isEmpty()) {
-      return
-    }
-
-    for (entry in delta.sourceMapToRecompile.entries) {
-      for (file in entry.value) {
-        sourceToOut.getDescriptor(file)?.outputs?.let {
-          affected.add(it)
-        }
+    if (!delta.sourceMapToRecompile.isEmpty()) {
+      for (files in delta.sourceMapToRecompile.values) {
+        sourceToOut.collectAffectedOutputs(files, affected)
       }
     }
   }

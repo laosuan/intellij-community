@@ -14673,6 +14673,11 @@ public abstract class K1QuickFixTestGenerated extends AbstractK1QuickFixTest {
             runTest("testData/quickfix/removeUnused/usedClassAsAlias.kt");
         }
 
+        @TestMetadata("usedContextParameters.kt")
+        public void testUsedContextParameters() throws Exception {
+            runTest("testData/quickfix/removeUnused/usedContextParameters.kt");
+        }
+
         @TestMetadata("usedFunAsAlias.kt")
         public void testUsedFunAsAlias() throws Exception {
             runTest("testData/quickfix/removeUnused/usedFunAsAlias.kt");
@@ -18672,6 +18677,11 @@ public abstract class K1QuickFixTestGenerated extends AbstractK1QuickFixTest {
                 runTest("testData/quickfix/typeMismatch/letImplementInterface/letClassImplementAdditionalInterface.kt");
             }
 
+            @TestMetadata("letClassImplementFunctionalInterfaceWithReceiver.kt")
+            public void testLetClassImplementFunctionalInterfaceWithReceiver() throws Exception {
+                runTest("testData/quickfix/typeMismatch/letImplementInterface/letClassImplementFunctionalInterfaceWithReceiver.kt");
+            }
+
             @TestMetadata("letClassImplementGenericInterface.kt")
             public void testLetClassImplementGenericInterface() throws Exception {
                 runTest("testData/quickfix/typeMismatch/letImplementInterface/letClassImplementGenericInterface.kt");
@@ -19532,6 +19542,16 @@ public abstract class K1QuickFixTestGenerated extends AbstractK1QuickFixTest {
             @TestMetadata("anyInReturn.kt")
             public void testAnyInReturn() throws Exception {
                 runTest("testData/quickfix/typeMismatch/anyInReturn.kt");
+            }
+
+            @TestMetadata("cannotChangeConstructorType.kt")
+            public void testCannotChangeConstructorType() throws Exception {
+                runTest("testData/quickfix/typeMismatch/cannotChangeConstructorType.kt");
+            }
+
+            @TestMetadata("cannotChangeSAMConstructorType.kt")
+            public void testCannotChangeSAMConstructorType() throws Exception {
+                runTest("testData/quickfix/typeMismatch/cannotChangeSAMConstructorType.kt");
             }
 
             @TestMetadata("cannotConvertStringToCharLiteral.kt")

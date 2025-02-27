@@ -7,29 +7,20 @@ import com.intellij.ide.plugins.DynamicPluginListener
 import com.intellij.ide.plugins.IdeaPluginDescriptor
 import com.intellij.ide.trustedProjects.TrustedProjectsListener
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.externalSystem.service.execution.ExternalSystemJdkException
 import com.intellij.openapi.progress.blockingContext
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.projectRoots.JavaSdkVersion
-import com.intellij.openapi.projectRoots.JavaSdkVersionUtil
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.impl.JavaAwareProjectJdkTableImpl
-import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.registry.Registry
 import com.intellij.util.ObjectUtils
 import com.intellij.util.PathUtil
 import com.intellij.util.net.NetUtils
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.apache.commons.lang3.SystemUtils
 import org.jetbrains.annotations.SystemIndependent
 import org.jetbrains.annotations.TestOnly
 import org.jetbrains.idea.maven.MavenDisposable
-import org.jetbrains.idea.maven.config.MavenConfigSettings
-import org.jetbrains.idea.maven.execution.MavenRunnerSettings
-import org.jetbrains.idea.maven.execution.SyncBundle
 import org.jetbrains.idea.maven.indices.MavenIndices
 import org.jetbrains.idea.maven.indices.MavenSystemIndicesManager.Companion.getInstance
 import org.jetbrains.idea.maven.project.*
@@ -38,8 +29,8 @@ import org.jetbrains.idea.maven.server.MavenServerManager.MavenServerConnectorFa
 import org.jetbrains.idea.maven.server.MavenServerManagerEx.Companion.stopConnectors
 import org.jetbrains.idea.maven.utils.MavenLog
 import org.jetbrains.idea.maven.utils.MavenUtil
-import org.jetbrains.idea.maven.utils.MavenEelUtil.getLocalRepo
-import org.jetbrains.idea.maven.utils.MavenEelUtil.getUserSettings
+import org.jetbrains.idea.maven.utils.MavenUtil.getJdkForImporter
+import org.jetbrains.idea.maven.utils.MavenUtil.isCompatibleWith
 import java.io.File
 import java.io.IOException
 import java.nio.file.Path
@@ -49,7 +40,6 @@ import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.function.Consumer
 import java.util.function.Predicate
-import kotlin.io.path.absolutePathString
 import kotlin.io.path.exists
 import kotlin.io.path.isDirectory
 
@@ -136,15 +126,14 @@ internal class MavenServerManagerImpl : MavenServerManager {
 
   private fun doGetConnector(project: Project, workingDirectory: String): MavenServerConnector {
     val multimoduleDirectory = MavenDistributionsCache.getInstance(project).getMultimoduleDirectory(workingDirectory)
-    val settings = MavenWorkspaceSettingsComponent.getInstance(project).settings
-    val jdk = getJdk(project, settings)
+    val jdk = getJdkForImporter(project)
 
     var connector = doGetOrCreateConnector(project, multimoduleDirectory, jdk)
     if (connector.isNew()) {
       connector.connect()
     }
     else {
-      if (!compatibleParameters(project, connector, jdk, multimoduleDirectory)) {
+      if (!connector.isCompatibleWith(project, jdk, multimoduleDirectory)) {
         MavenLog.LOG.info("[connector] $connector is incompatible, restarting")
         shutdownConnector(connector, false)
         connector = this.doGetOrCreateConnector(project, multimoduleDirectory, jdk)
@@ -188,41 +177,24 @@ internal class MavenServerManagerImpl : MavenServerManager {
     }
 
     synchronized(myMultimoduleDirToConnectorMap) {
-      var connector: MavenServerConnector?
-      connector = myMultimoduleDirToConnectorMap[multimoduleDirectory]
-      if (connector != null) return connector
-      connector = findCompatibleConnector(project, jdk, multimoduleDirectory)
-      if (connector != null) {
-        MavenLog.LOG.debug("[connector] use existing connector for $connector")
-        connector.addMultimoduleDir(multimoduleDirectory)
+      val cachedConnector = myMultimoduleDirToConnectorMap[multimoduleDirectory]
+      if (cachedConnector != null) return cachedConnector
+
+      val compatibleConnector = myMultimoduleDirToConnectorMap.values.firstOrNull {
+        it.isCompatibleWith(project, jdk, multimoduleDirectory)
       }
-      else {
-        connector = registerNewConnector(project, jdk, multimoduleDirectory)
+
+      if (compatibleConnector != null) {
+        MavenLog.LOG.debug("[connector] use existing connector for $compatibleConnector")
+        compatibleConnector.addMultimoduleDir(multimoduleDirectory)
       }
+
+      val connector = compatibleConnector ?: registerNewConnector(project, jdk, multimoduleDirectory)
+
       myMultimoduleDirToConnectorMap.put(multimoduleDirectory, connector)
 
       return connector
     }
-
-
-  }
-
-  private fun findCompatibleConnector(
-    project: Project,
-    jdk: Sdk,
-    multimoduleDirectory: String,
-  ): MavenServerConnector? {
-    val distribution = MavenDistributionsCache.getInstance(project).getMavenDistribution(multimoduleDirectory)
-    val vmOptions = MavenDistributionsCache.getInstance(project).getVmOptions(multimoduleDirectory)
-    for ((_, value) in myMultimoduleDirToConnectorMap) {
-      if (value.project != project) continue
-      if (Registry.`is`("maven.server.per.idea.project")) return value
-      if (value.isCompatibleWith(jdk, vmOptions, distribution)) {
-        return value
-      }
-    }
-
-    return null
   }
 
   private fun registerNewConnector(
@@ -344,52 +316,7 @@ internal class MavenServerManagerImpl : MavenServerManager {
     alwaysOnline: Boolean,
     multiModuleProjectDirectory: String,
   ): MavenEmbedderWrapper {
-    return object : MavenEmbedderWrapper(project) {
-      private var myConnector: MavenServerConnector? = null
-
-      val createMutex = Mutex()
-
-      @Throws(RemoteException::class)
-      override suspend fun create(): MavenServerEmbedder {
-        return createMutex.withLock { doCreate() }
-      }
-
-      @Throws(RemoteException::class)
-      private suspend fun doCreate(): MavenServerEmbedder {
-        var settings =
-          convertSettings(project, MavenProjectsManager.getInstance(project).generalSettings, multiModuleProjectDirectory)
-        if (alwaysOnline && settings.isOffline) {
-          settings = settings.clone()
-          settings.isOffline = false
-        }
-
-        val transformer = RemotePathTransformerFactory.createForProject(project)
-        var sdkPath = MavenUtil.getSdkPath(ProjectRootManager.getInstance(project).projectSdk)
-        if (sdkPath != null) {
-          sdkPath = transformer.toRemotePath(sdkPath)
-        }
-        settings.projectJdk = sdkPath
-
-        val forceResolveDependenciesSequentially = Registry.`is`("maven.server.force.resolve.dependencies.sequentially")
-        val useCustomDependenciesResolver = Registry.`is`("maven.server.use.custom.dependencies.resolver")
-
-        myConnector = this@MavenServerManagerImpl.getConnector(project, multiModuleProjectDirectory)
-        return myConnector!!.createEmbedder(MavenEmbedderSettings(
-          settings,
-          transformer.toRemotePath(multiModuleProjectDirectory),
-          forceResolveDependenciesSequentially,
-          useCustomDependenciesResolver
-        ))
-      }
-
-      @Synchronized
-      override fun cleanup() {
-        super.cleanup()
-        if (myConnector != null) {
-          shutdownConnector(myConnector!!, false)
-        }
-      }
-    }
+    return MavenEmbedderWrapperImpl(project, alwaysOnline, multiModuleProjectDirectory, this)
   }
 
   override fun createIndexer(): MavenIndexerWrapper {
@@ -537,93 +464,10 @@ internal class MavenServerManagerImpl : MavenServerManager {
         return null
       }
 
-    private fun getJdk(project: Project, settings: MavenWorkspaceSettings): Sdk {
-      val jdkForImporterName = settings.importingSettings.jdkForImporter
-      var jdk: Sdk
-      try {
-        jdk = MavenUtil.getJdk(project, jdkForImporterName)
-      }
-      catch (e: ExternalSystemJdkException) {
-        jdk = MavenUtil.getJdk(project, MavenRunnerSettings.USE_PROJECT_JDK)
-        MavenProjectsManager.getInstance(project).syncConsole.addWarning(SyncBundle.message("importing.jdk.changed"),
-                                                                         SyncBundle.message("importing.jdk.changed.description",
-                                                                                            jdkForImporterName, jdk.name)
-        )
-      }
-      if (JavaSdkVersionUtil.isAtLeast(jdk, JavaSdkVersion.JDK_1_8)) {
-        return jdk
-      }
-      else {
-        MavenLog.LOG.info("Selected jdk [" + jdk.name + "] is not JDK1.8+ Will use internal jdk instead")
-        return JavaAwareProjectJdkTableImpl.getInstanceEx().internalJdk
-      }
-    }
-
-    private fun compatibleParameters(
-      project: Project,
-      connector: MavenServerConnector,
-      jdk: Sdk,
-      multimoduleDirectory: String,
-    ): Boolean {
-      if (Registry.`is`("maven.server.per.idea.project")) return true
-      val cache = MavenDistributionsCache.getInstance(project)
-      val distribution = cache.getMavenDistribution(multimoduleDirectory)
-      val vmOptions = cache.getVmOptions(multimoduleDirectory)
-      return connector.isCompatibleWith(jdk, vmOptions, distribution)
-    }
-
     private val eventSpyPathForLocalBuild: Path
       get() {
         val root = Path.of(PathUtil.getJarPathForClass(MavenServerManager::class.java))
         return root.parent.resolve("intellij.maven.server.eventListener")
       }
-
-    private fun convertSettings(
-      project: Project,
-      settings: MavenGeneralSettings?,
-      multiModuleProjectDirectory: String,
-    ): MavenServerSettings {
-      var settings = settings
-      if (settings == null) {
-        settings = MavenWorkspaceSettingsComponent.getInstance(project).settings.generalSettings
-      }
-      val transformer = RemotePathTransformerFactory.createForProject(project)
-      val result = MavenServerSettings()
-      result.loggingLevel = settings!!.outputLevel.level
-      result.isOffline = settings.isWorkOffline
-      result.isUpdateSnapshots = settings.isAlwaysUpdateSnapshots
-      val mavenDistribution = MavenDistributionsCache.getInstance(project).getMavenDistribution(multiModuleProjectDirectory)
-
-      val remotePath = transformer.toRemotePath(mavenDistribution.mavenHome.toString())
-      result.mavenHomePath = remotePath
-
-      val userSettings = getUserSettings(project, settings.userSettingsFile, settings.mavenConfig)
-      val userSettingsPath = userSettings.toAbsolutePath().toString()
-      result.userSettingsPath = transformer.toRemotePath(userSettingsPath)
-
-      val localRepository =
-        getLocalRepo(project, settings.localRepository, MavenInSpecificPath(mavenDistribution.mavenHome),
-                     settings.userSettingsFile,
-                     settings.mavenConfig).toAbsolutePath().toString()
-      result.localRepositoryPath = transformer.toRemotePath(localRepository)
-      var file = getGlobalConfigFromMavenConfig(project, settings, transformer)
-      if (file == null) {
-        file = MavenUtil.resolveGlobalSettingsFile(mavenDistribution.mavenHome)
-      }
-      result.globalSettingsPath = transformer.toRemotePath(file.absolutePathString())
-      return result
-    }
-
-    private fun getGlobalConfigFromMavenConfig(
-      project: Project,
-      settings: MavenGeneralSettings,
-      transformer: RemotePathTransformerFactory.Transformer,
-    ): Path? {
-      val mavenConfig = settings.mavenConfig
-      if (mavenConfig == null) return null
-      val filePath = mavenConfig.getFilePath(MavenConfigSettings.ALTERNATE_GLOBAL_SETTINGS)
-      if (filePath == null) return null
-      return Path.of(filePath)
-    }
   }
 }

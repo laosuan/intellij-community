@@ -10,7 +10,9 @@ import com.intellij.platform.pasta.common.DocumentEntity
 import com.jetbrains.rhizomedb.ChangeScope
 import com.jetbrains.rhizomedb.EID
 import com.jetbrains.rhizomedb.requireChangeScope
+import fleet.kernel.Durable
 import fleet.kernel.DurableEntityType
+import fleet.util.UID
 import org.jetbrains.annotations.ApiStatus.Experimental
 
 
@@ -18,6 +20,7 @@ import org.jetbrains.annotations.ApiStatus.Experimental
 @Experimental
 class AdMarkupEntity(override val eid: EID) : DocumentComponentEntity<DocumentComponent> {
 
+  val uid: UID by Durable.Id
   internal val markupStorage: AdMarkupStorage by MarkupStorageAttr
 
   companion object : DurableEntityType<AdMarkupEntity>(
@@ -28,10 +31,11 @@ class AdMarkupEntity(override val eid: EID) : DocumentComponentEntity<DocumentCo
   ) {
     internal val MarkupStorageAttr: Required<AdMarkupStorage> = requiredValue("markupStorage", AdMarkupStorage.serializer())
 
-    fun empty(documentEntity: DocumentEntity): AdMarkupEntity = requireChangeScope {
+    internal fun empty(uid: UID, documentEntity: DocumentEntity): AdMarkupEntity = requireChangeScope {
       AdMarkupEntity.new {
+        it[Durable.Id] = uid
         it[DocumentAttr] = documentEntity
-        it[MarkupStorageAttr] = AdMarkupStorage.empty()
+        it[MarkupStorageAttr] = AdMarkupStorage.empty(documentEntity.text)
       }
     }
   }
@@ -41,7 +45,7 @@ class AdMarkupEntity(override val eid: EID) : DocumentComponentEntity<DocumentCo
     return object : DocumentComponent {
       override fun edit(before: Text, after: Text, operation: Operation) {
         changeScope.run {
-          entity[MarkupStorageAttr] = markupStorage.edit(operation)
+          entity[MarkupStorageAttr] = markupStorage.edit(after, operation)
         }
       }
     }

@@ -26,7 +26,8 @@ internal object TestJpsBuildWorker {
     val baseDir = testPaths.baseDir
 
     val testModule = TestModules.PLATFORM_IMPL
-    val sources = collectSources(sourceDirPath = testModule.sourcePath, paths = testPaths)
+    val sources = testModule.sourcePaths.flatMap { collectSources(sourceDirPath = it, paths = testPaths) }
+    require(sources.isNotEmpty())
     val testParams = testModule.getParams(baseDir)
 
     performTestInvocation { out, coroutineScope ->

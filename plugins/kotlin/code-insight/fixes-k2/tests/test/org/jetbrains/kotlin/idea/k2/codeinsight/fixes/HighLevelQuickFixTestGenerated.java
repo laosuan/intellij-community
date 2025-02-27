@@ -4463,6 +4463,11 @@ public abstract class HighLevelQuickFixTestGenerated extends AbstractHighLevelQu
             runTest("../../../idea/tests/testData/quickfix/typeMismatch/letImplementInterface/letClassImplementAdditionalInterface.kt");
         }
 
+        @TestMetadata("letClassImplementFunctionalInterfaceWithReceiver.kt")
+        public void testLetClassImplementFunctionalInterfaceWithReceiver() throws Exception {
+            runTest("../../../idea/tests/testData/quickfix/typeMismatch/letImplementInterface/letClassImplementFunctionalInterfaceWithReceiver.kt");
+        }
+
         @TestMetadata("letClassImplementGenericInterface.kt")
         public void testLetClassImplementGenericInterface() throws Exception {
             runTest("../../../idea/tests/testData/quickfix/typeMismatch/letImplementInterface/letClassImplementGenericInterface.kt");
@@ -5520,6 +5525,16 @@ public abstract class HighLevelQuickFixTestGenerated extends AbstractHighLevelQu
         @TestMetadata("anyInReturn.kt")
         public void testAnyInReturn() throws Exception {
             runTest("../../../idea/tests/testData/quickfix/typeMismatch/anyInReturn.kt");
+        }
+
+        @TestMetadata("cannotChangeConstructorType.kt")
+        public void testCannotChangeConstructorType() throws Exception {
+            runTest("../../../idea/tests/testData/quickfix/typeMismatch/cannotChangeConstructorType.kt");
+        }
+
+        @TestMetadata("cannotChangeSAMConstructorType.kt")
+        public void testCannotChangeSAMConstructorType() throws Exception {
+            runTest("../../../idea/tests/testData/quickfix/typeMismatch/cannotChangeSAMConstructorType.kt");
         }
 
         @TestMetadata("cannotConvertStringToCharLiteral.kt")
@@ -11827,6 +11842,11 @@ public abstract class HighLevelQuickFixTestGenerated extends AbstractHighLevelQu
         @TestMetadata("usedClassAsAlias.kt")
         public void testUsedClassAsAlias() throws Exception {
             runTest("../../../idea/tests/testData/quickfix/removeUnused/usedClassAsAlias.kt");
+        }
+
+        @TestMetadata("usedContextParameters.kt")
+        public void testUsedContextParameters() throws Exception {
+            runTest("../../../idea/tests/testData/quickfix/removeUnused/usedContextParameters.kt");
         }
 
         @TestMetadata("usedFunAsAlias.kt")

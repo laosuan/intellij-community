@@ -9605,8 +9605,6 @@ public abstract class K2IntentionTestGenerated extends AbstractK2IntentionTest {
 
 
 
-
-
     @RunWith(JUnit3RunnerWithInners.class)
     @TestMetadata("../../../idea/tests/testData/intentions/branched/elvisToIfThen")
     public static class ElvisToIfThen extends AbstractK2IntentionTest {
@@ -12877,6 +12875,11 @@ public abstract class K2IntentionTestGenerated extends AbstractK2IntentionTest {
         @TestMetadata("replaceThis.kt")
         public void testReplaceThis() throws Exception {
             runTest("../../../idea/tests/testData/intentions/convertReceiverToParameter/replaceThis.kt");
+        }
+
+        @TestMetadata("smartCastReceiver.kt")
+        public void testSmartCastReceiver() throws Exception {
+            runTest("../../../idea/tests/testData/intentions/convertReceiverToParameter/smartCastReceiver.kt");
         }
 
         @TestMetadata("smartCasts.kt")

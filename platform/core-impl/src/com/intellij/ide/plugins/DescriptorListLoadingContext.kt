@@ -20,15 +20,14 @@ import java.util.function.Supplier
 
 @ApiStatus.Internal
 class DescriptorListLoadingContext(
-  private val customDisabledPlugins: Set<PluginId>? = null,
-  private val customExpiredPlugins: Set<PluginId>? = null,
-  private val customBrokenPluginVersions: Map<PluginId, Set<String?>>? = null,
-  private val customEssentialPlugins: List<PluginId>? = null,
+  customDisabledPlugins: Set<PluginId>? = null,
+  customExpiredPlugins: Set<PluginId>? = null,
+  customBrokenPluginVersions: Map<PluginId, Set<String?>>? = null,
+  customEssentialPlugins: List<PluginId>? = null,
   @JvmField val productBuildNumber: () -> BuildNumber = { PluginManagerCore.buildNumber },
   override val isMissingIncludeIgnored: Boolean = false,
   @JvmField val isMissingSubDescriptorIgnored: Boolean = false,
-  checkOptionalConfigFileUniqueness: Boolean = false,
-  @JvmField val transient: Boolean = false
+  checkOptionalConfigFileUniqueness: Boolean = false
 ) : AutoCloseable, ReadModuleContext {
   val disabledPlugins: Set<PluginId> by lazy { customDisabledPlugins ?: DisabledPluginsState.getDisabledIds() }
   val expiredPlugins: Set<PluginId> by lazy { customExpiredPlugins ?: ExpiredPluginsState.expiredPluginIds }

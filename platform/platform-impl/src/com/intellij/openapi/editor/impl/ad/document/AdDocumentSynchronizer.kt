@@ -10,7 +10,7 @@ import com.intellij.openapi.editor.event.DocumentEvent
 import com.intellij.openapi.editor.ex.DocumentEx
 import com.intellij.openapi.editor.ex.PrioritizedDocumentListener
 import com.intellij.openapi.editor.impl.ad.AdTheManager
-import com.intellij.openapi.editor.impl.ad.ThreadLocalRhizomeDB
+import com.intellij.openapi.editor.impl.ad.util.ThreadLocalRhizomeDB
 import com.intellij.platform.pasta.common.DocumentEntity
 import com.intellij.platform.util.coroutines.childScope
 import com.intellij.util.ui.EDT
@@ -37,7 +37,7 @@ internal class AdDocumentSynchronizer(private val coroutineScope: CoroutineScope
     val debugName = document.toString()
     val cs = coroutineScope.childScope("doc->entity sync $debugName")
     coroutineScope.launch(AdTheManager.AD_DISPATCHER) {
-      val entity = DocumentEntityManager.getInstance().getDocEntity(document)
+      val entity = AdDocumentEntityManager.getInstance().getDocEntity(document)
       checkNotNull(entity) { "entity $debugName not found" }
       document.addDocumentListener(DocToEntitySynchronizer(debugName, entity, cs))
     }

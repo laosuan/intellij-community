@@ -7,55 +7,27 @@ import org.jetbrains.jps.builders.BuildTarget
 import org.jetbrains.jps.builders.BuildTargetIndex
 import org.jetbrains.jps.builders.BuildTargetRegistry.ModuleTargetSelector
 import org.jetbrains.jps.builders.BuildTargetType
-import org.jetbrains.jps.builders.impl.BuildDataPathsImpl
 import org.jetbrains.jps.builders.impl.BuildTargetChunk
 import org.jetbrains.jps.builders.logging.BuildLoggingManager
-import org.jetbrains.jps.builders.storage.BuildDataPaths
 import org.jetbrains.jps.cmdline.ProjectDescriptor
 import org.jetbrains.jps.incremental.CompileContext
 import org.jetbrains.jps.incremental.ModuleBuildTarget
 import org.jetbrains.jps.incremental.fs.BuildFSState
-import org.jetbrains.jps.incremental.relativizer.PathRelativizerService
 import org.jetbrains.jps.incremental.storage.BuildDataManager
-import org.jetbrains.jps.incremental.storage.BuildDataVersionManager
-import org.jetbrains.jps.incremental.storage.StorageManager
 import org.jetbrains.jps.indices.IgnoredFileIndex
 import org.jetbrains.jps.model.JpsModel
 import org.jetbrains.jps.model.module.JpsModule
-import java.nio.file.Path
 
-private class BazelBuildDataPaths(private val dir: Path) : BuildDataPaths {
-  override fun getDataStorageDir() = dir
-
-  override fun getTargetsDataRoot(): Path = dir
-
-  override fun getTargetTypeDataRootDir(targetType: BuildTargetType<*>): Path = dir
-
-  override fun getTargetDataRootDir(target: BuildTarget<*>): Path = dir
-
-  override fun getTargetDataRoot(targetType: BuildTargetType<*>, targetId: String): Path  = dir
-}
-
-internal fun loadJpsProject(
-  storageManager: StorageManager,
-  dataStorageRoot: Path,
-  fsState: BuildFSState,
+internal fun createJpsProjectDescriptor(
+  dataManager: BuildDataManager,
   jpsModel: JpsModel,
   moduleTarget: BazelModuleBuildTarget,
-  relativizer: PathRelativizerService,
-  buildDataProvider: BazelBuildDataProvider,
 ): ProjectDescriptor {
-  val dataManager = BuildDataManager.createSingleDb(
-    ///* dataPaths = */ BazelBuildDataPaths(dataStorageRoot),
-    /* dataPaths = */ BuildDataPathsImpl(dataStorageRoot),
-    /* targetStateManager = */ BazelBuildTargetStateManager,
-    /* relativizer = */ relativizer,
-    /* versionManager = */ NoopBuildDataVersionManager,
-    /* buildDataProvider = */ buildDataProvider,
-  )
   return ProjectDescriptor(
     /* model = */ jpsModel,
-    /* fsState = */ fsState,
+    // alwaysScanFS doesn't matter, we use our own version of `BuildOperations.ensureFSStateInitialized`,
+    // see `JpsProjectBuilder.ensureFsStateInitialized`
+    /* fsState = */ BuildFSState(/* alwaysScanFS = */ true),
     /* dataManager = */ dataManager,
     /* loggingManager = */ BuildLoggingManager.DEFAULT,
     /* moduleExcludeIndex = */ NoopModuleExcludeIndex,
@@ -67,13 +39,6 @@ internal fun loadJpsProject(
 
 internal object NoopIgnoredFileIndex : IgnoredFileIndex {
   override fun isIgnored(path: String) = false
-}
-
-private object NoopBuildDataVersionManager : BuildDataVersionManager {
-  override fun versionDiffers() = false
-
-  override fun saveVersion() {
-  }
 }
 
 internal class BazelBuildTargetIndex(@JvmField val moduleTarget: ModuleBuildTarget) : BuildTargetIndex {

@@ -15,13 +15,17 @@
  */
 package com.siyeh.ig.psiutils;
 
-import com.intellij.codeInsight.daemon.impl.analysis.PatternsInSwitchBlockHighlightingModel;
+import com.intellij.codeInsight.ExpressionUtil;
+import com.intellij.java.codeserver.core.JavaPsiSwitchUtil;
 import com.intellij.pom.java.JavaFeature;
 import com.intellij.pom.java.LanguageLevel;
 import com.intellij.psi.*;
 import com.intellij.psi.codeStyle.VariableKind;
 import com.intellij.psi.tree.IElementType;
-import com.intellij.psi.util.*;
+import com.intellij.psi.util.JavaPsiPatternUtil;
+import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.psi.util.PsiUtil;
+import com.intellij.psi.util.TypeConversionUtil;
 import com.intellij.util.ObjectUtils;
 import com.intellij.util.SmartList;
 import com.intellij.util.containers.ContainerUtil;
@@ -562,36 +566,6 @@ public final class SwitchUtils {
     }
   }
 
-  /**
-   * @param switchBlock a switch statement or expression
-   * @return either default switch label statement {@link PsiSwitchLabelStatementBase}, or {@link PsiDefaultCaseLabelElement},
-   * or null, if nothing was found.
-   */
-  public static @Nullable PsiElement findDefaultElement(@NotNull PsiSwitchBlock switchBlock) {
-    PsiCodeBlock body = switchBlock.getBody();
-    if (body == null) return null;
-    for (PsiStatement statement : body.getStatements()) {
-      PsiSwitchLabelStatementBase switchLabelStatement = ObjectUtils.tryCast(statement, PsiSwitchLabelStatementBase.class);
-      if (switchLabelStatement == null) continue;
-      PsiElement defaultElement = findDefaultElement(switchLabelStatement);
-      if (defaultElement != null) return defaultElement;
-    }
-    return null;
-  }
-
-  /**
-   * @param label a switch label statement
-   * @return either default switch label statement {@link PsiSwitchLabelStatementBase}, or {@link PsiDefaultCaseLabelElement},
-   * or null, if nothing was found.
-   */
-  public static @Nullable PsiElement findDefaultElement(@NotNull PsiSwitchLabelStatementBase label) {
-    if (label.isDefaultCase()) return label;
-    PsiCaseLabelElementList labelElementList = label.getCaseLabelElementList();
-    if (labelElementList == null) return null;
-    return ContainerUtil.find(labelElementList.getElements(),
-                              labelElement -> labelElement instanceof PsiDefaultCaseLabelElement);
-  }
-
   public static @Nullable @NonNls String createPatternCaseText(PsiExpression expression){
     expression = PsiUtil.skipParenthesizedExprDown(expression);
     if (expression instanceof PsiInstanceOfExpression instanceOf) {
@@ -944,7 +918,7 @@ public final class SwitchUtils {
     if (unreachableElements.isEmpty() || hasDefault) {
       return unreachableElements;
     }
-    boolean isEnhancedSwitch = JavaPsiSwitchUtil.isEnhancedSwitch(statement);
+    boolean isEnhancedSwitch = ExpressionUtil.isEnhancedSwitch(statement);
     if (isEnhancedSwitch) {
       PsiExpression expression = statement.getExpression();
       if (expression == null) {
@@ -960,7 +934,7 @@ public final class SwitchUtils {
         boolean isDominated = false;
         for (int j = i + 1; j < unreachableElements.size(); j++) {
           PsiCaseLabelElement nextElement = unreachableElements.get(j);
-          isDominated = PatternsInSwitchBlockHighlightingModel.isDominated(currentElement, nextElement, selectorType);
+          isDominated = JavaPsiSwitchUtil.isDominated(currentElement, nextElement, selectorType);
           if (!isDominated) {
             break;
           }

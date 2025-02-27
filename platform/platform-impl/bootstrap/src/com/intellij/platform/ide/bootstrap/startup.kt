@@ -154,9 +154,9 @@ fun CoroutineScope.startApplication(
     }
   }
 
-  val zipFilePoolDeferred = async {
+  val zipPoolDeferred = async {
     val result = ZipFilePoolImpl()
-    ZipFilePool.POOL = result
+    ZipFilePool.PATH_CLASSLOADER_POOL = result
     result
   }
 
@@ -225,7 +225,7 @@ fun CoroutineScope.startApplication(
 
     PluginManagerCore.scheduleDescriptorLoading(
       coroutineScope = this@startApplication,
-      zipFilePoolDeferred = zipFilePoolDeferred,
+      zipPoolDeferred = zipPoolDeferred,
       mainClassLoaderDeferred = mainClassLoaderDeferred,
       logDeferred = logDeferred,
     )
@@ -335,6 +335,8 @@ fun CoroutineScope.startApplication(
 
       executeApplicationStarter(starter = starter, args = args)
     }
+    // no need to use a pool once started
+    ZipFilePool.PATH_CLASSLOADER_POOL = null
   }
 }
 

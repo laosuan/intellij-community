@@ -27,6 +27,7 @@ import com.intellij.xdebugger.XDebugSessionListener
 import com.intellij.xdebugger.XDebuggerBundle
 import com.intellij.xdebugger.XSourcePosition
 import com.intellij.xdebugger.evaluation.XDebuggerEditorsProvider
+import com.intellij.xdebugger.evaluation.XDebuggerEvaluator
 import com.intellij.xdebugger.frame.XExecutionStack
 import com.intellij.xdebugger.frame.XStackFrame
 import com.intellij.xdebugger.frame.XSuspendContext
@@ -44,6 +45,7 @@ internal class FrontendXDebuggerSession private constructor(
   override val project: Project,
   scope: CoroutineScope,
   sessionDto: XDebugSessionDto,
+  override val processHandler: ProcessHandler,
   override val consoleView: ConsoleView?,
 ) : XDebugSessionProxy {
   private val cs = scope.childScope("Session ${sessionDto.id}")
@@ -76,11 +78,16 @@ internal class FrontendXDebuggerSession private constructor(
   private val currentExecutionStack = MutableStateFlow<FrontendXExecutionStack?>(null)
   private val currentStackFrame = MutableStateFlow<FrontendXStackFrame?>(null)
 
-  val evaluator: StateFlow<FrontendXDebuggerEvaluator?> =
+  // TODO Actually session could have a global evaluator, see
+  //  com.intellij.xdebugger.XDebugProcess.getEvaluator overrides
+  private val evaluator: StateFlow<FrontendXDebuggerEvaluator?> =
     currentStackFrame.map { frame ->
       val frameEvaluator = frame?.evaluator ?: return@map null
       frameEvaluator as FrontendXDebuggerEvaluator
     }.stateIn(cs, SharingStarted.Eagerly, null)
+
+  override val currentEvaluator: XDebuggerEvaluator?
+    get() = evaluator.value
 
   override val isStopped: Boolean
     get() = sessionState.value.isStopped
@@ -91,13 +98,13 @@ internal class FrontendXDebuggerSession private constructor(
   override val environmentProxy: ExecutionEnvironmentProxy?
     get() = null // TODO: implement!
 
-  val isReadOnly: Boolean
+  override val isReadOnly: Boolean
     get() = sessionState.value.isReadOnly
 
   val isPauseActionSupported: Boolean
     get() = sessionState.value.isPauseActionSupported
 
-  val isSuspended: Boolean
+  override val isSuspended: Boolean
     get() = sessionState.value.isSuspended
 
   override val editorsProvider: XDebuggerEditorsProvider = localEditorsProvider
@@ -120,7 +127,6 @@ internal class FrontendXDebuggerSession private constructor(
     get() = emptyList() // TODO
   override val extraStopActions: List<AnAction>
     get() = emptyList() // TODO
-  override val processHandler: ProcessHandler = createFrontendProcessHandler(project, sessionDto.processHandlerDto)
   override val coroutineScope: CoroutineScope = cs
   override val currentStateMessage: String
     get() = if (isStopped) XDebuggerBundle.message("debugger.state.message.disconnected") else XDebuggerBundle.message("debugger.state.message.connected") // TODO
@@ -301,8 +307,12 @@ internal class FrontendXDebuggerSession private constructor(
       scope: CoroutineScope,
       sessionDto: XDebugSessionDto,
     ): FrontendXDebuggerSession {
-      val consoleView = sessionDto.consoleViewData?.consoleView()
-      return FrontendXDebuggerSession(project, scope, sessionDto, consoleView)
+      val processHandler = createFrontendProcessHandler(project, sessionDto.processHandlerDto)
+      val consoleView = sessionDto.consoleViewData?.consoleView(processHandler)
+
+      return FrontendXDebuggerSession(project, scope, sessionDto, processHandler, consoleView).also {
+        processHandler.setReady()
+      }
     }
   }
 }

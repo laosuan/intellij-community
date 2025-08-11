@@ -5,7 +5,7 @@ import java.io.IOException;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 
-public class A implements Serializable {
+public class MethodMayBeStatic implements Serializable {
 
     private void writeObject(java.io.ObjectOutputStream out)
             throws IOException {
@@ -96,5 +96,12 @@ interface IntSupplier {
 class WithArrayReference {
   private void <warning descr="Method 'foo()' may be 'static'">foo</warning>() {
     IntSupplier aNew = Object[]::new;
+  }
+}
+class InnerClassScope {
+  class Inner {}
+  
+  Inner create() {
+    return new Inner();
   }
 }
